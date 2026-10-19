@@ -1,0 +1,743 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Chat API 调试台</title>
+  <style>
+    :root {
+      --bg: #f4f6f7;
+      --panel: #ffffff;
+      --line: #d8e0e3;
+      --text: #1d2a30;
+      --muted: #66777f;
+      --accent: #0f766e;
+      --accent-soft: #e7f4f1;
+      --danger: #b42318;
+      --danger-soft: #fef3f2;
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body { height: 100%; }
+
+    body {
+      margin: 0;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      background: var(--bg);
+      color: var(--text);
+      font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif;
+      font-size: 14px;
+    }
+
+    button, textarea { font: inherit; }
+
+    header {
+      height: 56px;
+      flex: none;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 0 16px;
+      background: var(--panel);
+      border-bottom: 1px solid var(--line);
+    }
+
+    .brand {
+      font-size: 16px;
+      font-weight: 700;
+      letter-spacing: 0;
+    }
+
+    .status {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      color: var(--muted);
+      font-size: 13px;
+      min-width: 0;
+    }
+
+    .status::before {
+      content: "";
+      width: 8px;
+      height: 8px;
+      flex: none;
+      border-radius: 50%;
+      background: #12b76a;
+    }
+
+    .status[data-tone="busy"]::before { background: #d97706; }
+    .status[data-tone="error"] { color: var(--danger); }
+    .status[data-tone="error"]::before { background: var(--danger); }
+
+    main {
+      flex: 1;
+      min-height: 0;
+      min-width: 0;
+      overflow: hidden;
+      display: grid;
+      grid-template-columns: 300px minmax(0, 1fr);
+      gap: 12px;
+      padding: 12px;
+    }
+
+    .sidebar, .chat {
+      min-height: 0;
+      min-width: 0;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+    }
+
+    .sidebar {
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .sidebar-head, .chat-head {
+      flex: none;
+      min-width: 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 12px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .sidebar-head h2 {
+      margin: 0;
+      font-size: 14px;
+    }
+
+    .actions {
+      flex: none;
+      display: flex;
+      gap: 6px;
+    }
+
+    .session-list {
+      min-height: 0;
+      overflow: auto;
+      padding: 8px;
+    }
+
+    .session-item {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 32px;
+      gap: 4px;
+      margin-bottom: 6px;
+      border: 1px solid transparent;
+      border-radius: 6px;
+    }
+
+    .session-item.active {
+      background: var(--accent-soft);
+      border-color: #b9ded8;
+    }
+
+    .session-main {
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 3px;
+      padding: 9px 10px;
+      border: 0;
+      background: transparent;
+      color: var(--text);
+      text-align: left;
+      cursor: pointer;
+    }
+
+    .session-title {
+      width: 100%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-weight: 600;
+    }
+
+    .session-meta, .meta {
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .delete-mini {
+      align-self: center;
+      width: 28px;
+      height: 28px;
+      border: 0;
+      border-radius: 6px;
+      background: transparent;
+      color: var(--muted);
+      cursor: pointer;
+    }
+
+    .delete-mini:hover {
+      color: var(--danger);
+      background: var(--danger-soft);
+    }
+
+    .side-empty {
+      padding: 16px 10px;
+      color: var(--muted);
+      font-size: 13px;
+      text-align: center;
+    }
+
+    .chat {
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .chat-title {
+      min-width: 0;
+      font-weight: 700;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .messages {
+      flex: 1;
+      min-height: 0;
+      min-width: 0;
+      overflow: auto;
+      overflow-x: hidden;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      padding: 16px;
+    }
+
+    .empty {
+      margin: auto;
+      max-width: 360px;
+      color: var(--muted);
+      line-height: 1.7;
+      text-align: center;
+    }
+
+    .message {
+      max-width: 78%;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .message.user {
+      align-self: flex-end;
+      align-items: flex-end;
+    }
+
+    .message.assistant { align-self: flex-start; }
+
+    .message-meta {
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .bubble {
+      min-width: 0;
+      max-width: 100%;
+      padding: 9px 12px;
+      border-radius: 8px;
+      background: #eef2f3;
+      line-height: 1.6;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+    }
+
+    .message.user .bubble {
+      color: #ffffff;
+      background: var(--accent);
+    }
+
+    .bubble.streaming::after {
+      content: "▍";
+      margin-left: 2px;
+      animation: blink 1s step-end infinite;
+    }
+
+    .bubble.error {
+      color: var(--danger);
+      background: var(--danger-soft);
+      border: 1px solid #f3b7b2;
+    }
+
+    @keyframes blink { 50% { opacity: 0; } }
+
+    .composer {
+      flex: none;
+      min-width: 0;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 8px;
+      padding: 12px;
+      border-top: 1px solid var(--line);
+    }
+
+    textarea {
+      width: 100%;
+      min-width: 0;
+      min-height: 64px;
+      max-height: 180px;
+      resize: vertical;
+      padding: 9px 10px;
+      color: var(--text);
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      outline: none;
+      line-height: 1.5;
+    }
+
+    textarea:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.12);
+    }
+
+    button {
+      padding: 7px 11px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: var(--panel);
+      color: var(--text);
+      cursor: pointer;
+    }
+
+    button:hover:not(:disabled) { border-color: #aebbc0; }
+
+    button.primary {
+      color: #ffffff;
+      background: var(--accent);
+      border-color: var(--accent);
+    }
+
+    button.danger {
+      color: var(--danger);
+      border-color: #efc2be;
+    }
+
+    button.ghost { background: transparent; }
+
+    button:disabled {
+      cursor: not-allowed;
+      opacity: 0.5;
+    }
+
+    .composer button {
+      min-width: 76px;
+      align-self: end;
+      height: 40px;
+    }
+
+    @media (max-width: 760px) {
+      main {
+        grid-template-columns: 1fr;
+        grid-template-rows: minmax(120px, 28vh) minmax(0, 1fr);
+      }
+
+      .chat-head > div { min-width: 0; }
+
+      .actions { flex-wrap: wrap; justify-content: flex-end; }
+
+      .message { max-width: 88%; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="brand">Chat API 调试台</div>
+    <div id="status" class="status" data-tone="busy">正在连接...</div>
+  </header>
+
+  <main>
+    <aside class="sidebar">
+      <div class="sidebar-head">
+        <h2>会话</h2>
+        <div class="actions">
+          <button id="newSession" type="button" class="primary">新建</button>
+          <button id="refreshSessions" type="button" class="ghost">刷新</button>
+        </div>
+      </div>
+      <div id="sessionList" class="session-list"></div>
+    </aside>
+
+    <section class="chat">
+      <div class="chat-head">
+        <div>
+          <div id="currentTitle" class="chat-title">未选择会话</div>
+          <div id="currentMeta" class="meta"></div>
+        </div>
+        <button id="deleteSession" type="button" class="danger ghost" disabled>删除</button>
+      </div>
+
+      <div id="messages" class="messages">
+        <div class="empty">新建一个会话开始调试。<br>刷新页面会从数据库重新拉取会话和历史消息。</div>
+      </div>
+
+      <form id="chatForm" class="composer">
+        <textarea id="messageInput" rows="3" placeholder="输入消息，Enter 发送，Shift+Enter 换行" disabled></textarea>
+        <button id="sendButton" type="submit" class="primary" disabled>发送</button>
+      </form>
+    </section>
+  </main>
+
+  <script>
+    const state = {
+      sessions: [],
+      currentId: null,
+      streaming: false,
+      selectToken: 0,
+    };
+
+    const els = {
+      status: document.getElementById("status"),
+      sessionList: document.getElementById("sessionList"),
+      currentTitle: document.getElementById("currentTitle"),
+      currentMeta: document.getElementById("currentMeta"),
+      messages: document.getElementById("messages"),
+      form: document.getElementById("chatForm"),
+      input: document.getElementById("messageInput"),
+      send: document.getElementById("sendButton"),
+      delete: document.getElementById("deleteSession"),
+      newSession: document.getElementById("newSession"),
+      refresh: document.getElementById("refreshSessions"),
+    };
+
+    function setStatus(text, tone = "ok") {
+      els.status.textContent = text;
+      els.status.dataset.tone = tone;
+    }
+
+    async function api(path, options = {}) {
+      const response = await fetch(path, {
+        headers: { "Content-Type": "application/json" },
+        ...options,
+      });
+      const text = await response.text();
+      let data = null;
+      try {
+        data = text ? JSON.parse(text) : null;
+      } catch {
+        data = text;
+      }
+      if (!response.ok) {
+        const detail = data && typeof data === "object" ? data.detail : data;
+        throw new Error(detail || `HTTP ${response.status}`);
+      }
+      return data;
+    }
+
+    function parseServerTime(value) {
+      return new Date(value.endsWith("Z") ? value : `${value}Z`);
+    }
+
+    function formatTime(value) {
+      return parseServerTime(value).toLocaleString("zh-CN", {
+        hour12: false,
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+    }
+
+    function updateComposer() {
+      const ready = Boolean(state.currentId) && !state.streaming;
+      els.input.disabled = !ready;
+      els.send.disabled = !ready;
+      els.delete.disabled = !state.currentId || state.streaming;
+    }
+
+    function clearCurrent() {
+      state.currentId = null;
+      els.currentTitle.textContent = "未选择会话";
+      els.currentMeta.textContent = "";
+      els.messages.replaceChildren();
+      const empty = document.createElement("div");
+      empty.className = "empty";
+      empty.textContent = "还没有会话，点击左上角“新建”开始调试。";
+      els.messages.append(empty);
+      updateComposer();
+    }
+
+    function scrollBottom() {
+      els.messages.scrollTop = els.messages.scrollHeight;
+    }
+
+    function addMessage(role, content, seq, streaming = false) {
+      const row = document.createElement("div");
+      row.className = `message ${role}`;
+
+      const meta = document.createElement("div");
+      meta.className = "message-meta";
+      const roleName = role === "user" ? "你" : role === "assistant" ? "AI" : role;
+      meta.textContent = seq ? `${roleName} · #${seq}` : roleName;
+
+      const bubble = document.createElement("div");
+      bubble.className = `bubble${streaming ? " streaming" : ""}`;
+      bubble.textContent = content;
+
+      row.append(meta, bubble);
+      els.messages.append(row);
+      scrollBottom();
+      return bubble;
+    }
+
+    function renderMessages(messages) {
+      els.messages.replaceChildren();
+      if (!messages.length) {
+        const empty = document.createElement("div");
+        empty.className = "empty";
+        empty.textContent = "这个会话还没有消息。发送一句话开始测试。";
+        els.messages.append(empty);
+        return;
+      }
+      for (const message of messages) {
+        addMessage(message.role, message.content, message.seq);
+      }
+      scrollBottom();
+    }
+
+    function renderSessions() {
+      els.sessionList.replaceChildren();
+      if (!state.sessions.length) {
+        const empty = document.createElement("div");
+        empty.className = "side-empty";
+        empty.textContent = "还没有会话";
+        els.sessionList.append(empty);
+        return;
+      }
+
+      for (const session of state.sessions) {
+        const item = document.createElement("div");
+        item.className = `session-item${session.id === state.currentId ? " active" : ""}`;
+
+        const main = document.createElement("button");
+        main.type = "button";
+        main.className = "session-main";
+        main.addEventListener("click", () => selectSession(session.id));
+
+        const title = document.createElement("span");
+        title.className = "session-title";
+        title.textContent = session.title || `会话 ${session.id}`;
+
+        const meta = document.createElement("span");
+        meta.className = "session-meta";
+        meta.textContent = `#${session.id} · ${formatTime(session.updated_at)}`;
+
+        main.append(title, meta);
+
+        const remove = document.createElement("button");
+        remove.type = "button";
+        remove.className = "delete-mini";
+        remove.title = "删除会话";
+        remove.setAttribute("aria-label", `删除会话 ${session.id}`);
+        remove.textContent = "×";
+        remove.addEventListener("click", (event) => {
+          event.stopPropagation();
+          deleteSession(session.id);
+        });
+
+        item.append(main, remove);
+        els.sessionList.append(item);
+      }
+    }
+
+    async function selectSession(id) {
+      if (state.streaming) return;
+      const token = ++state.selectToken;
+      const session = state.sessions.find((item) => item.id === id);
+      state.currentId = id;
+      renderSessions();
+      els.currentTitle.textContent = session ? session.title : `会话 ${id}`;
+      els.currentMeta.textContent = session ? `#${session.id} · 更新于 ${formatTime(session.updated_at)}` : "";
+      updateComposer();
+      setStatus("正在加载历史...", "busy");
+
+      try {
+        const messages = await api(`/sessions/${id}/messages`);
+        if (token !== state.selectToken) return;
+        renderMessages(messages);
+        setStatus("已连接");
+      } catch (error) {
+        if (token !== state.selectToken) return;
+        renderMessages([]);
+        setStatus(`加载失败：${error.message}`, "error");
+      }
+    }
+
+    async function loadSessions(preferId = null) {
+      if (state.streaming) return;
+      setStatus("正在加载会话...", "busy");
+      const sessions = await api("/sessions");
+      state.sessions = sessions;
+      renderSessions();
+
+      const target = preferId ?? state.currentId;
+      const exists = sessions.some((session) => session.id === target);
+      if (exists) {
+        await selectSession(target);
+      } else if (sessions.length) {
+        await selectSession(sessions[0].id);
+      } else {
+        clearCurrent();
+        setStatus("已连接，暂无会话");
+      }
+    }
+
+    async function createSession() {
+      if (state.streaming) return;
+      try {
+        setStatus("正在新建会话...", "busy");
+        const title = `调试会话 ${new Date().toLocaleTimeString("zh-CN", { hour12: false })}`;
+        const session = await api("/sessions", {
+          method: "POST",
+          body: JSON.stringify({ title }),
+        });
+        await loadSessions(session.id);
+      } catch (error) {
+        setStatus(`新建失败：${error.message}`, "error");
+      }
+    }
+
+    async function deleteSession(id) {
+      if (!id || state.streaming) return;
+      if (!confirm(`删除会话 #${id}？关联消息也会一起删除。`)) return;
+      try {
+        setStatus("正在删除会话...", "busy");
+        await api(`/sessions/${id}`, { method: "DELETE" });
+        if (state.currentId === id) state.currentId = null;
+        await loadSessions();
+      } catch (error) {
+        setStatus(`删除失败：${error.message}`, "error");
+      }
+    }
+
+    async function sendMessage(event) {
+      event.preventDefault();
+      const content = els.input.value.trim();
+      if (!content || !state.currentId || state.streaming) return;
+
+      const sessionId = state.currentId;
+      state.streaming = true;
+      updateComposer();
+      els.input.value = "";
+
+      els.messages.querySelector(".empty")?.remove();
+      addMessage("user", content, null);
+      const bubble = addMessage("assistant", "", null, true);
+      let fullReply = "";
+      let completed = false;
+      let streamError = null;
+      setStatus("AI 正在回复...", "busy");
+
+      try {
+        const response = await fetch(`/sessions/${sessionId}/chat`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ content }),
+        });
+
+        if (!response.ok) {
+          let detail = `HTTP ${response.status}`;
+          try {
+            const body = await response.json();
+            detail = body.detail || detail;
+          } catch {}
+          throw new Error(detail);
+        }
+        if (!response.body) throw new Error("当前浏览器不支持流式读取");
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
+
+        while (true) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+
+          let boundary = buffer.indexOf("\n\n");
+          while (boundary !== -1) {
+            const eventText = buffer.slice(0, boundary);
+            buffer = buffer.slice(boundary + 2);
+
+            for (const line of eventText.split("\n")) {
+              if (!line.startsWith("data:")) continue;
+              const payload = line.slice(5).trim();
+              if (!payload || payload === "[DONE]") continue;
+
+              let data;
+              try {
+                data = JSON.parse(payload);
+              } catch {
+                continue;
+              }
+              if (data.error) throw new Error(data.error);
+              if (typeof data.delta === "string") {
+                fullReply += data.delta;
+                bubble.textContent = fullReply;
+                scrollBottom();
+              }
+            }
+            boundary = buffer.indexOf("\n\n");
+          }
+        }
+
+        if (!fullReply) bubble.textContent = "（模型没有返回内容）";
+        completed = true;
+        setStatus("已完成");
+      } catch (error) {
+        streamError = error;
+        bubble.classList.add("error");
+        bubble.textContent = fullReply
+          ? `${fullReply}\n\n[中断] ${error.message}`
+          : `请求失败：${error.message}`;
+        setStatus(`请求失败：${error.message}`, "error");
+      } finally {
+        bubble.classList.remove("streaming");
+        state.streaming = false;
+        updateComposer();
+      }
+
+      if (completed) {
+        try {
+          await loadSessions(sessionId);
+        } catch (error) {
+          setStatus(`已回复，但刷新历史失败：${error.message}`, "error");
+        }
+      } else if (streamError) {
+        els.currentMeta.textContent = "消息可能已写入，点击“刷新”重新加载";
+      }
+    }
+
+    els.newSession.addEventListener("click", createSession);
+    els.refresh.addEventListener("click", () => {
+      loadSessions().catch((error) => setStatus(`刷新失败：${error.message}`, "error"));
+    });
+    els.delete.addEventListener("click", () => deleteSession(state.currentId));
+    els.form.addEventListener("submit", sendMessage);
+    els.input.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" && !event.shiftKey) {
+        event.preventDefault();
+        els.form.requestSubmit();
+      }
+    });
+
+    loadSessions().catch((error) => {
+      setStatus(`连接失败：${error.message}`, "error");
+      clearCurrent();
+    });
+  </script>
+</body>
+</html>
